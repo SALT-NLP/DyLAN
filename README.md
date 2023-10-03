@@ -2,6 +2,8 @@
 
 Official Implementation of **Dynamic LLM-Agent Network: An LLM-agent Collaboration Framework with Agent Evaluation**
 
+Authors: [Zijun Liu](https://scholar.google.com/citations?user=vXsVhPcAAAAJ), [Yanzhe Zhang](https://stevenyzzhang.github.io/website/), [Peng Li](http://www.lpeng.net/), [Yang Liu](http://nlp.csai.tsinghua.edu.cn/~ly/), [Diyi Yang](https://cs.stanford.edu/~diyiy/)
+
 ## Overview
 
 ![LLM-as-a-Neuron](./figs/overview2.png)
