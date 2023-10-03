@@ -69,7 +69,7 @@ pip install -r requirements.txt
 We already give an example query and its answer. Check it out!
 
 <details><summary>Note</summary>
-DyLAN was originally named LLMLP. DyLAN in the paper is the same as LLMLP in the code. We did not change the name in the code because it will cause a lot of trouble.
+We implemented DyLAN as an LLM-based Multi-Layer Perceptron. LLMLP, as its nickname, is used in the code implementation and we structure the code in a style of neural network.
 </details>
 
 ### Run Experiments
