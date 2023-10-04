@@ -4,6 +4,17 @@ Official Implementation of **Dynamic LLM-Agent Network: An LLM-agent Collaborati
 
 Authors: [Zijun Liu](https://www.semanticscholar.org/author/Zijun-Liu/2117942065), [Yanzhe Zhang](https://stevenyzzhang.github.io/website/), [Peng Li](http://www.lpeng.net/), [Yang Liu](http://nlp.csai.tsinghua.edu.cn/~ly/), [Diyi Yang](https://cs.stanford.edu/~diyiy/)
 
+```
+@misc{liu2023dynamic,
+    title={Dynamic LLM-Agent Network: An LLM-agent Collaboration Framework with Agent Team Optimization},
+    author={Zijun Liu and Yanzhe Zhang and Peng Li and Yang Liu and Diyi Yang},
+    year={2023},
+    eprint={2310.02170},
+    archivePrefix={arXiv},
+    primaryClass={cs.CL}
+}
+```
+
 ## Overview
 
 ![LLM-as-a-Neuron](./figs/overview2.png)
