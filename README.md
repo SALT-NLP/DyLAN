@@ -1,6 +1,6 @@
 # DyLAN
 
-Official Implementation of [**Dynamic LLM-Agent Network: An LLM-agent Collaboration Framework with Agent Evaluation**](https://arxiv.org/abs/2310.02170)
+Official Implementation of [**Dynamic LLM-Agent Network: An LLM-agent Collaboration Framework with Agent Team Optimization**](https://arxiv.org/abs/2310.02170)
 
 Authors: [Zijun Liu](https://www.semanticscholar.org/author/Zijun-Liu/2117942065), [Yanzhe Zhang](https://stevenyzzhang.github.io/website/), [Peng Li](http://www.lpeng.net/), [Yang Liu](http://nlp.csai.tsinghua.edu.cn/~ly/), [Diyi Yang](https://cs.stanford.edu/~diyiy/)
 
