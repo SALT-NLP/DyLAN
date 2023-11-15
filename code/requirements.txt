@@ -1,8 +1,8 @@
 astunparse==1.6.3
 backoff==2.2.1
-human_eval==1.0
 numpy==1.22.4
 openai==0.27.6
 pandas==1.5.3
 prettytable==3.8.0
 sacrebleu==2.3.1
+human-eval
