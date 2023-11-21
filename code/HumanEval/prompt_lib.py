@@ -8,14 +8,18 @@ ROLE_MAP = {
     "PythonAssistant": "You are a Python writing assistant, an AI that only responds with python code, NOT ENGLISH. You will be given a function signature and its docstring by the user. Write your full implementation (restate the function signature).", # from https://github.com/composable-models/llm_multiagent_debate.git
     "AlgorithmDeveloper": "You are an algorithm developer. You are good at developing and utilizing algorithms to solve problems. You must respond with python code, no free-flowing text (unless in a comment). You will be given a function signature and its docstring by the user. Write your full implementation following the format (restate the function signature).",
     "ComputerScientist": "You are a computer scientist. You are good at writing high performance code and recognizing corner cases while solve real problems. You must respond with python code, no free-flowing text (unless in a comment). You will be given a function signature and its docstring by the user. Write your full implementation following the format (restate the function signature).",
-    "Programmer": "You are an intelligent programmer. You must complete the python function given to you by the user. And you must follow the format they present when giving your answer! You can only respond with comments and actual code, no free-flowing text (unless in a comment)." # from https://github.com/getcursor/eval.git
+    "Programmer": "You are an intelligent programmer. You must complete the python function given to you by the user. And you must follow the format they present when giving your answer! You can only respond with comments and actual code, no free-flowing text (unless in a comment).", # from https://github.com/getcursor/eval.git
+    "CodingArtist": "You are a coding artist. You write Python code that is not only functional but also aesthetically pleasing and creative. Your goal is to make the code an art form while maintaining its utility. You will be given a function signature and its docstring by the user. Write your full implementation following the format (restate the function signature).",
+    "SoftwareArchitect": "You are a software architect, skilled in designing and structuring code for scalability, maintainability, and robustness. Your responses should focus on best practices in software design. You will be given a function signature and its docstring by the user. Write your full implementation following the format (restate the function signature)."
 }
 
 ROLE_MAP_INIT = {
     "PythonAssistant": "You are a Python writing assistant, an AI that only responds with python code, NOT ENGLISH. You will be given a series of previous implementations of the same function signature and docstring. You use the previous implementations as a hint and your goal is to write your full implementation again (restate the function signature). Here're some examples.", # from https://github.com/composable-models/llm_multiagent_debate.git
     "AlgorithmDeveloper": "You are an algorithm developer. You are good at developing and utilizing algorithms to solve problems. You must respond with python code, no free-flowing text (unless in a comment). You will be given a series of previous implementations of the same function signature. You use the previous implementations as a hint and your goal is to complete your full implementation with better accuracy and robustness. Remember to follow the format (restate the function signature). Here're some examples.",
     "ComputerScientist": "You are a computer scientist. You are good at writing high performance code and recognizing corner cases while solve real problems. You must respond with python code, no free-flowing text (unless in a comment). You will be given a series of previous implementations of the same function signature. You use the previous implementations as a hint and your goal is to complete your full implementation with better accuracy and robustness. Remember to follow the format (restate the function signature). Here're some examples.",
-    "Programmer": "You are an intelligent programmer. You will be given a series of previous implementations of the same function signature. You use the previous implementations as a hint and your goal is to complete your full implementation with better accuracy and robustness. And you must follow the format they present when giving your answer! You can only respond with comments and actual code, no free-flowing text (unless in a comment). Here're some examples." # from https://github.com/getcursor/eval.git
+    "Programmer": "You are an intelligent programmer. You will be given a series of previous implementations of the same function signature. You use the previous implementations as a hint and your goal is to complete your full implementation with better accuracy and robustness. And you must follow the format they present when giving your answer! You can only respond with comments and actual code, no free-flowing text (unless in a comment). Here're some examples.", # from https://github.com/getcursor/eval.git
+    "CodingArtist": "You are a coding artist. You write Python code that is not only functional but also aesthetically pleasing and creative. Your goal is to make the code an art form while maintaining its utility. You will be given a series of previous implementations of the same function signature. You use the previous implementations as a hint and your goal is to complete your full implementation with better accuracy and robustness. Remember to follow the format (restate the function signature). Here're some examples.",
+    "SoftwareArchitect": "You are a software architect, skilled in designing and structuring code for scalability, maintainability, and robustness. Your responses should focus on best practices in software design. You will be given a series of previous implementations of the same function signature. You use the previous implementations as a hint and your goal is to complete your full implementation with better accuracy and robustness. Remember to follow the format (restate the function signature). Here're some examples."
 }
 
 TOOL_LIST = ['Passer']
@@ -90,25 +94,140 @@ The implementation will fail when no subarray fulfills the condition. The issue 
 [reflection 2]:
 The implementation has an issue stemming from the while loop `while current_sum + nums[right] <= target:`, which directly accesses `nums[right]` without checking if right is within the bounds of the list. This results in a runtime error when right goes beyond the list length. To overcome this error, we need to add a bounds check for the right variable in the mentioned while loop. We can modify the loop condition to `while right < len(nums) and current_sum + nums[right] <= target:`. This change will ensure that we only access elements within the bounds of the list, thus avoiding the IndexError."""
 
+EXAMPLE_DEBUGGER = """Example:
+[previous impl 1]:
+```python
+def longest_subarray_with_sum_limit(nums: List[int], target: int) -> List[int]:
+    n = len(nums)
+    left, right = 0, 0
+    max_length = 0
+    current_sum = 0
+    result = []
+    while right < n:
+        current_sum += nums[right]
+        while current_sum > target:
+            current_sum -= nums[left]
+            left += 1
+        if right - left + 1 >= max_length:
+            max_length = right - left + 1
+            result = nums[left:right+1]
+        right += 1
+    return result
+```
+
+[previous impl 2]:
+```python
+def longest_subarray_with_sum_limit(nums: List[int], target: int) -> List[int]:
+    n = len(nums)
+    left, right = 0, 0
+    max_length = 0
+    current_sum = 0
+    result = []
+    while current_sum + nums[right] <= target:
+        current_sum += nums[right]
+        right += 1
+    while right < n:
+        current_sum += nums[right]
+        while current_sum > target:
+            current_sum -= nums[left]
+            left += 1
+        if right - left + 1 > max_length:
+            max_length = right - left + 1
+            result = nums[left:right+1]
+        right += 1
+    return result
+```
+
+[bug fix 1]:
+Expression `right - left + 1 >= max_length` is buggy. I suggest to fix it as `right - left + 1 > max_length`.
+
+[bug fix 2]:
+The while loop `while current_sum + nums[right] <= target:` is a bug. It's better to use `while right < len(nums) and current_sum + nums[right] <= target:`."""
+
+
+EXAMPLE_QUALITY_MANAGER = """Example:
+[previous impl 1]:
+```python
+def longest_subarray_with_sum_limit(nums: List[int], target: int) -> List[int]:
+    n = len(nums)
+    left, right = 0, 0
+    max_length = 0
+    current_sum = 0
+    result = []
+    while right < n:
+        current_sum += nums[right]
+        while current_sum > target:
+            current_sum -= nums[left]
+            left += 1
+        if right - left + 1 >= max_length:
+            max_length = right - left + 1
+            result = nums[left:right+1]
+        right += 1
+    return result
+```
+
+[previous impl 2]:
+```python
+def longest_subarray_with_sum_limit(nums: List[int], target: int) -> List[int]:
+    n = len(nums)
+    left, right = 0, 0
+    max_length = 0
+    current_sum = 0
+    result = []
+    while current_sum + nums[right] <= target:
+        current_sum += nums[right]
+        right += 1
+    while right < n:
+        current_sum += nums[right]
+        while current_sum > target:
+            current_sum -= nums[left]
+            left += 1
+        if right - left + 1 > max_length:
+            max_length = right - left + 1
+            result = nums[left:right+1]
+        right += 1
+    return result
+```
+
+[code review 1]:
+- **Efficiency**: Efficient use of the sliding window technique.
+- **Correctness**: Correct but updates `result` even for subarrays of equal max length, which could be optimized.
+- **Readability**: Clear variable names; adding comments would improve understanding.
+- **Edge Cases**: Consider adding checks for empty lists or negative targets.
+
+[code review 2]:
+- **Correctness**: Potential `IndexError` due to the initial loop exceeding list bounds.
+- **Efficiency**: Redundant initial loop, could be simplified.
+- **Readability**: Good variable naming, but initial loop adds unnecessary complexity.
+- **Consistency**: Inconsistent update condition for `max_length` compared to the first implementation.
+- **Edge Cases**: Similar to the first, needs checks for edge cases and error handling."""
+
+
 JUDGE_MAP = {
     "Passer": "",
     "Tester": f"""You are an AI coding assistant that can write unique, diverse, and intuitive unit tests for functions given the signature and docstring. Here's the example.
 
 {EXAMPLE_TESTER}""",
     "Reflector": f"You are a Python writing assistant. You will be given a series of function implementations of the same function signature. Write a few sentences to explain whether and why the implementations are wrong. These comments will be used as a hint and your goal is to write your thoughts on the n-th previous implementation after [reflection n]. Here's the example.\n{EXAMPLE_REFLECTOR}",
-    "Ranker": "You are a Python writing assistant. You will be given a series of function implementations of the same function signature. You need to choose the best 2 implementations in consideration of correctness, efficiency, and possible corner cases."
+    "Ranker": "You are a Python writing assistant. You will be given a series of function implementations of the same function signature. You need to choose the best 2 implementations in consideration of correctness, efficiency, and possible corner cases.",
+    "Debugger": f"You are a debugger, specialized in finding and fixing bugs in Python code. You will be given a function implementation with a bug in it. Your goal is to identify the bug and provide a corrected implementation. Include comments to explain what was wrong and how it was fixed. Here's the example.\n{EXAMPLE_DEBUGGER}",
+    "QualityManager": f"You are a quality manager, ensuring that the code meets high standards in terms of readability, efficiency, and accuracy. You will be given a function implementation and you need to provide a code review. Comment on its correctness, efficiency, and readability, and suggest improvements if needed. Here's the example.\n{EXAMPLE_QUALITY_MANAGER}"
 }
 
 JUDGE_PREFIX = {
     "Passer": "[syntax check {}]:\n",
     "Tester": "[unit test results {}]:\n",
     "Reflector": "[reflection {}]:\n",
+    "Debugger": "[bug fix {}]:\n",
+    "QualityManager": "[code review {}]:\n",
 }
 
 JUDGE_NAMES = {
     "Passer": "Syntax Checker",
     "Tester": "Unit Tests",
     "Reflector": "Reflector",
+    "Debugger": "Debugger",
+    "QualityManager": "Quality Manager",
 }
 
 
@@ -409,6 +528,22 @@ def construct_judge_message(responses, question, qtype, role):
 
                 prefix_string = prefix_string + response
             prefix_string = prefix_string + "Write your reflection on these implementations in consideration of correctness, efficiency, and possible corner cases. Put your reflection of the n-th implementation after [reflection n].\nAlong with the reflections, give a score ranged from 1 to 5 to each previous implementation. Put all {} scores in the form like [[1, 5, 2, ...]] at the end of your response.".format(len(responses))
+            return {"role": "user", "content": prefix_string}
+        elif role == "Debugger":
+            prefix_string = "Here are previous implementations of the same function.The function has a signature and a docstring explaining its functionality.\n\n"
+            for aid, agent_response in enumerate(responses, start=1):
+                response = "[previous impl {}]:\n```python\n{}\n```\n\n".format(aid, agent_response)
+
+                prefix_string = prefix_string + response
+            prefix_string = prefix_string + "Debug this version of implementation and write your feedback as a debugger. Put your reflection of the n-th implementation after [reflection n].\nAlong with the reflections, give a score ranged from 1 to 5 to each previous implementation. Put all {} scores in the form like [[1, 5, 2, ...]] at the end of your response.".format(len(responses))
+            return {"role": "user", "content": prefix_string}
+        elif role == "QualityManager":
+            prefix_string = "Here are previous implementations of the same function.The function has a signature and a docstring explaining its functionality.\n\n"
+            for aid, agent_response in enumerate(responses, start=1):
+                response = "[previous impl {}]:\n```python\n{}\n```\n\n".format(aid, agent_response)
+
+                prefix_string = prefix_string + response
+            prefix_string = prefix_string + "Write your code review on these implementations in multiple aspects. Put your reflection of the n-th implementation after [reflection n].\nAlong with the reflections, give a score ranged from 1 to 5 to each previous implementation. Put all {} scores in the form like [[1, 5, 2, ...]] at the end of your response.".format(len(responses))
             return {"role": "user", "content": prefix_string}
         elif role == "Ranker":
             prefix_string = "Here are some implementations of the same function. The function has a signature and a docstring explaining its functionality.\n\n"

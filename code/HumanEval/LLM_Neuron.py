@@ -21,7 +21,7 @@ class LLMNeuron:
         self.question = None
 
         if mtype == "gpt-3.5-turbo":
-            self.model = "chatgpt0301"
+            self.model = "gpt-3.5-turbo-0301"
         elif mtype == "gpt-4":
             self.model = "gpt4"
         else:
@@ -156,7 +156,7 @@ class JudgeNeuron:
         self.resp_cost = 1 if role not in TOOL_LIST else 0
 
         if mtype == "gpt-3.5-turbo":
-            self.model = "chatgpt0301"
+            self.model = "gpt-3.5-turbo-0301"
         elif mtype == "gpt-4":
             self.model = "gpt4"
         else:
@@ -201,7 +201,7 @@ class JudgeNeuron:
                         results.append(math.ceil(pass_tests / total_tests * 5))
                 return results
 
-            if self.role != "Reflector":
+            if self.role != "Reflector" and self.role != "Debugger" and self.role != "QualityManager":
                 raise NotImplementedError("Error init role type")
 
             # Find all matches of array pattern

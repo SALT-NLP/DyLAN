@@ -306,6 +306,42 @@ def parse_judge_attitude(agent_response, question, role, former_results):
         for res_code, reflection in zip(former_results, reflections):
             attitude[res_code] = reflection
         return attitude
+    elif role == "Debugger":
+        def parse_reflection(response):
+            reflections = []
+
+            # Extract content between [reflection n] and [reflection n+1] or [reflection n] and EOF
+            matches = re.findall(r'\[bug fix \d+\]:\n(.*?)(?=\[bug fix \d+\]:|$)', response, re.DOTALL)
+
+            for match in matches:
+                # Strip each extracted reflection content
+                reflections.append(match.strip())
+            return reflections
+        reflections = parse_reflection(agent_response)
+        if len(reflections) != len(former_results):
+            reflections = ["No Bugs"] * len(former_results)
+        attitude = dict()
+        for res_code, reflection in zip(former_results, reflections):
+            attitude[res_code] = reflection
+        return attitude
+    elif role == "QualityManager":
+        def parse_reflection(response):
+            reflections = []
+
+            # Extract content between [reflection n] and [reflection n+1] or [reflection n] and EOF
+            matches = re.findall(r'\[code review \d+\]:\n(.*?)(?=\[code review \d+\]:|$)', response, re.DOTALL)
+
+            for match in matches:
+                # Strip each extracted reflection content
+                reflections.append(match.strip())
+            return reflections
+        reflections = parse_reflection(agent_response)
+        if len(reflections) != len(former_results):
+            reflections = ["No code review"] * len(former_results)
+        attitude = dict()
+        for res_code, reflection in zip(former_results, reflections):
+            attitude[res_code] = reflection
+        return attitude
     elif role == "Ranker":
         attitude = dict()
         tops = parse_ranks(agent_response, max_num=len(former_results)) if 2 < len(former_results) <= 4 else [0, 1]
