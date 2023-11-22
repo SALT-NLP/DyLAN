@@ -535,7 +535,7 @@ def construct_judge_message(responses, question, qtype, role):
                 response = "[previous impl {}]:\n```python\n{}\n```\n\n".format(aid, agent_response)
 
                 prefix_string = prefix_string + response
-            prefix_string = prefix_string + "Debug this version of implementation and write your feedback as a debugger. Put your reflection of the n-th implementation after [reflection n].\nAlong with the reflections, give a score ranged from 1 to 5 to each previous implementation. Put all {} scores in the form like [[1, 5, 2, ...]] at the end of your response.".format(len(responses))
+            prefix_string = prefix_string + "Debug this version of implementation and write your feedback as a debugger. Put your debug information of the n-th implementation after [bug fix n].\nPlease give a score ranged from 1 to 5 to each previous implementation. Put all {} scores in the form like [[1, 5, 2, ...]] at the end of your response.".format(len(responses))
             return {"role": "user", "content": prefix_string}
         elif role == "QualityManager":
             prefix_string = "Here are previous implementations of the same function.The function has a signature and a docstring explaining its functionality.\n\n"
@@ -543,7 +543,7 @@ def construct_judge_message(responses, question, qtype, role):
                 response = "[previous impl {}]:\n```python\n{}\n```\n\n".format(aid, agent_response)
 
                 prefix_string = prefix_string + response
-            prefix_string = prefix_string + "Write your code review on these implementations in multiple aspects. Put your reflection of the n-th implementation after [reflection n].\nAlong with the reflections, give a score ranged from 1 to 5 to each previous implementation. Put all {} scores in the form like [[1, 5, 2, ...]] at the end of your response.".format(len(responses))
+            prefix_string = prefix_string + "Write your code review on these implementations in multiple aspects. Put your review of the n-th implementation after [code review n].\nAlso, give a score ranged from 1 to 5 to each previous implementation. Put all {} scores in the form like [[1, 5, 2, ...]] at the end of your response.".format(len(responses))
             return {"role": "user", "content": prefix_string}
         elif role == "Ranker":
             prefix_string = "Here are some implementations of the same function. The function has a signature and a docstring explaining its functionality.\n\n"
