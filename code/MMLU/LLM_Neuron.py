@@ -19,10 +19,11 @@ class LLMNeuron:
         self.from_edges = []
         self.question = None
 
-        if mtype == "gpt-3.5-turbo":
-            self.model = "chatgpt0301"
-        else:
-            raise NotImplementedError("Error init model type")
+        # if mtype == "gpt-3.5-turbo":
+        #     self.model = "chatgpt0301"
+        # else:
+        #     raise NotImplementedError("Error init model type")
+        self.model = mtype
 
         def find_array(text):
             # Find all matches of array pattern
@@ -164,12 +165,12 @@ def parse_ranks(completion, max_num=4):
     return tops
 
 def listwise_ranker_2(responses, question, qtype, model="chatgpt0301"):
-    if model == "gpt-3.5-turbo":
-        model = "chatgpt0301"
-    elif model == "gpt-4":
-        model = "gpt4"
-    else:
-        raise NotImplementedError("Error init model type")
+    # if model == "gpt-3.5-turbo":
+    #     model = "chatgpt0301"
+    # elif model == "gpt-4":
+    #     model = "gpt4"
+    # else:
+    #     raise NotImplementedError("Error init model type")
     assert 2 < len(responses)# <= 4
     message = construct_ranking_message(responses, question, qtype)
     completion, prompt_tokens, completion_tokens = generate_answer([message], model)

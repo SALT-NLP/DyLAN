@@ -58,6 +58,14 @@ def construct_ranking_message(responses, question, qtype):
     return {"role": "user", "content": prefix_string}
 
 def construct_message(responses, question, qtype):
+    import os
+
+    # Check if RATIONALE mode is enabled
+    use_rationale = os.getenv("RATIONALE", "0") == "1"
+
+    # Define the rationale prompt string (you can customize this)
+    rationale_prompt = "**For each agent's solution, provide a one-sentence rationale for the assigned score before you provide the scores.**\n"
+
     if qtype == "single_choice":
         if len(responses) == 0:
             prefix_string = "Here is the question:\n" + question + "\n\nPut your answer in the form (X) at the end of your response. (X) represents choice (A), (B), (C), or (D)."
@@ -70,7 +78,15 @@ def construct_message(responses, question, qtype):
 
             prefix_string = prefix_string + response
 
-        prefix_string = prefix_string + "\n\nUsing the reasoning from other agents as additional advice with critical thinking, can you give an updated answer? Examine your solution and that other agents step by step. Notice that their answers might be all wrong. Put your answer in the form (X) at the end of your response. (X) represents choice (A), (B), (C), or (D). Along with the answer, give a score ranged from 1 to 5 to the solutions of other agents. Put all {} scores in the form like [[1, 5, 2, ...]].".format(len(responses))
+        # Base instruction
+        instruction = "\n\nUsing the reasoning from other agents as additional advice with critical thinking, can you give an updated answer? Examine your solution and that other agents step by step. Notice that their answers might be all wrong. Put your answer in the form (X) at the end of your response. (X) represents choice (A), (B), (C), or (D). Along with the answer, give a score ranged from 1 to 5 to the solutions of other agents. Put all {} scores in the form like [[1, 5, 2, ...]].".format(len(responses))
+
+        # Add rationale prompt if enabled
+        if use_rationale and rationale_prompt:
+            instruction = instruction + " " + rationale_prompt
+
+        prefix_string = prefix_string + instruction
+
     elif qtype == "math_exp":
         if len(responses) == 0:
             return {"role": "user", "content": question}
@@ -82,7 +98,14 @@ def construct_message(responses, question, qtype):
 
             prefix_string = prefix_string + response
 
-        prefix_string = prefix_string + "\n\nUsing the reasoning from other agents as additional advice with critical thinking, can you give an updated answer? Examine your solution and that other agents step by step. Notice that their answers might be all wrong. Along with the answer, give a score ranged from 1 to 5 to the solutions of other agents. Put all {} scores in the form like [[1, 5, 2, ...]].".format(len(responses))
+        # Base instruction
+        instruction = "\n\nUsing the reasoning from other agents as additional advice with critical thinking, can you give an updated answer? Examine your solution and that other agents step by step. Notice that their answers might be all wrong. Along with the answer, give a score ranged from 1 to 5 to the solutions of other agents. Put all {} scores in the form like [[1, 5, 2, ...]].".format(len(responses))
+
+        # Add rationale prompt if enabled
+        if use_rationale and rationale_prompt:
+            instruction = instruction + " " + rationale_prompt
+
+        prefix_string = prefix_string + instruction
     else:
         raise ValueError("Question type is incorrect.", qtype)
 
@@ -185,3 +208,50 @@ So, one solution is $x=0$ and the other two solutions are the solutions to $x^2 
 We could either factor the quadratic, or note that the sum of the solutions to this quadratic is $-(3/1)=-3$,
 so the mean of the three solutions to the original equation is $-3/3=\boxed{-1}$.
 The answer is -1"""
+
+
+# -------------------------------
+# JSON-only judge for k candidates (soft weights)
+# -------------------------------
+
+def construct_weight_judge_message(responses, question, qtype):
+    """
+    Build a JSON-only judging prompt that asks the LLM to return a weight vector
+    [w1, w2, ..., wk] for k >= 2 candidate solutions, where all wi >= 0 and sum to 1.
+    The order of weights must follow the order in which the candidates are listed below.
+    NOTE: This function does NOT shuffle; shuffling is done by the caller for bias-avoidance.
+    """
+    assert isinstance(responses, list) and len(responses) >= 2, "Need at least two responses"
+
+    if qtype == "single_choice":
+        header = (
+            "Here is the question:\n" + question +
+            "\n\nBelow are candidate solutions from k agents."
+        )
+    elif qtype == "math_exp":
+        header = (
+            "Follow the given examples and answer the mathematics problem.\n\n" + question +
+            "\n\nBelow are candidate solutions from k agents."
+        )
+    else:
+        header = "Task description:\n" + question + "\n\nBelow are candidate solutions from k agents."
+
+    # List candidates in order (the caller may shuffle prior to calling this)
+    blocks = []
+    for i, text in enumerate(responses, start=1):
+        blocks.append(f"\n\nCandidate {i}:\n```{str(text)}```")
+    body = "".join(blocks)
+
+    instructions = (
+        "\n\nAct as an impartial judge. Compare the **quality of reasoning** of the candidates "
+        "for correctness, completeness, and clarity. Output **only** a JSON array of k non‑negative "
+        "numbers that **sum to 1**, representing how much credit each solution deserves: "
+        "[w1, w2, ..., wk].\n"
+        "Return **only** the JSON array — no prose, no code fences, no explanation."
+    )
+
+    messages = [
+        {"role": "system", "content": "You are a strict grading judge who outputs JSON only."},
+        {"role": "user",   "content": header + body + instructions},
+    ]
+    return messages

@@ -4,13 +4,14 @@ import re
 import time
 import pandas as pd
 from prompt_lib import MMLU_QUESTION, COMPLEX_COT_EXAMPLES, TEMPERATURE, MAX_TOKENS
-import openai
+from together import Together
 import backoff
-from openai.error import RateLimitError, APIError, ServiceUnavailableError, APIConnectionError, Timeout
+from together.error import RateLimitError, APIError
 
 
 class OutOfQuotaException(Exception):
     "Raised when the key exceeded the current quota"
+
     def __init__(self, key, cause=None):
         super().__init__(f"No quota for key: {key}")
         self.key = key
@@ -22,8 +23,10 @@ class OutOfQuotaException(Exception):
         else:
             return super().__str__()
 
+
 class AccessTerminatedException(Exception):
     "Raised when the key has been terminated"
+
     def __init__(self, key, cause=None):
         super().__init__(f"Access terminated key: {key}")
         self.key = key
@@ -34,6 +37,21 @@ class AccessTerminatedException(Exception):
             return f"{super().__str__()}. Caused by {self.cause}"
         else:
             return super().__str__()
+
+
+# Initialize Together client
+_together_client = None
+
+
+def get_together_client():
+    global _together_client
+    if _together_client is None:
+        api_key = os.getenv("TOGETHER_API_KEY")
+        if not api_key:
+            raise ValueError("TOGETHER_API_KEY environment variable not set")
+        _together_client = Together(api_key=api_key)
+    return _together_client
+
 
 def _fix_a_slash_b(string):
     if len(string.split("/")) != 2:
@@ -49,6 +67,7 @@ def _fix_a_slash_b(string):
     except:
         return string
 
+
 def _fix_sqrt(string):
     if "\\sqrt" not in string:
         return string
@@ -62,6 +81,7 @@ def _fix_sqrt(string):
             new_substr = "\\sqrt" + split
         new_string += new_substr
     return new_string
+
 
 def _fix_fracs(string):
     substrs = string.split("\\frac")
@@ -96,6 +116,7 @@ def _fix_fracs(string):
     string = new_str
     return string
 
+
 def _remove_right_units(string):
     # "\\text{ " only ever occurs (at least in the val set) when describing units
     if "\\text{ " in string:
@@ -104,6 +125,7 @@ def _remove_right_units(string):
         return splits[0]
     else:
         return string
+
 
 def _strip_string(string):
     # linebreaks
@@ -174,6 +196,7 @@ def _strip_string(string):
 
     return string
 
+
 def parse_question_answer(df, ix):
     question = df.iloc[ix, 0]
     a = df.iloc[ix, 1]
@@ -187,32 +210,34 @@ def parse_question_answer(df, ix):
 
     return question, answer
 
+
 def get_mmlu_qa_pairs(csv_name):
     df = pd.read_csv(csv_name, header=None)
     ix = len(df)
     return [parse_question_answer(df, idx) for idx in range(ix)]
 
+
 def get_math_qa_pairs(sub_dir, min_file, max_file):
     def find_math_answer(s):
-        assert('boxed' in s)
+        assert ('boxed' in s)
         # s = s.replace(",", "")
         ans = s.split('boxed')[-1]
-        if(ans[0] == '{'):
+        if (ans[0] == '{'):
             stack = 1
             a = ''
             for c in ans[1:]:
-                if(c == '{'):
+                if (c == '{'):
                     stack += 1
                     a += c
-                elif(c == '}'):
+                elif (c == '}'):
                     stack -= 1
-                    if(stack == 0): break
+                    if (stack == 0): break
                     a += c
                 else:
                     a += c
         else:
             a = ans.split('$')[0].strip()
-        a=_strip_string(a)
+        a = _strip_string(a)
         return a
 
     def parse_single_qa_math(subdir, file):
@@ -247,6 +272,7 @@ def get_math_qa_pairs(sub_dir, min_file, max_file):
             ret_list.append((question, answer))
     return ret_list
 
+
 def is_equiv(str1, str2, verbose=False):
     if str1 is None and str2 is None:
         print("WARNING: Both None")
@@ -263,10 +289,11 @@ def is_equiv(str1, str2, verbose=False):
     except:
         return str1 == str2
 
+
 def extract_math_answer(pred_str):
-    if('The answer is ' in pred_str):
+    if ('The answer is ' in pred_str):
         pred = pred_str.split('The answer is ')[-1].strip()
-    elif('the answer is ' in pred_str):
+    elif ('the answer is ' in pred_str):
         pred = pred_str.split('the answer is ')[-1].strip()
     elif 'boxed' in pred_str:
         ans = pred_str.split('boxed')[-1]
@@ -288,21 +315,22 @@ def extract_math_answer(pred_str):
         else:
             a = ans.split('$')[0].strip()
         a = _strip_string(a)
-        pred=a
+        pred = a
 
     else:
         pattern = '-?\d*\.?\d+'
         pred = re.findall(pattern, pred_str)
-        if(len(pred) >= 1):
+        if (len(pred) >= 1):
             # print(pred_str)
             pred = pred[-1]
-        else: pred = ''
+        else:
+            pred = ''
     if pred != "":
         if pred[-1] == ".":
             pred = pred[:-1]
         if pred[-1] == "/":
             pred = pred[:-1]
-    pred=_strip_string(pred)
+    pred = _strip_string(pred)
     if 'boxed' in pred:
         ans = pred.split('boxed')[-1]
         if (ans[0] == '{'):
@@ -321,30 +349,34 @@ def extract_math_answer(pred_str):
         else:
             a = ans.split('$')[0].strip()
         a = _strip_string(a)
-        pred=a
+        pred = a
     return pred
 
-@backoff.on_exception(backoff.expo, (RateLimitError, APIError, ServiceUnavailableError, APIConnectionError, Timeout), max_tries=20)
+
+@backoff.on_exception(backoff.expo, (RateLimitError, APIError), max_tries=5)
 def generate_answer(answer_context, model):
     print("question context: ")
     print(answer_context)
+    client = get_together_client()
     try:
-        completion = openai.ChatCompletion.create(
-                #   model=model,
-                  engine=model,
-                  messages=answer_context,
-                  temperature=TEMPERATURE,
-                  max_tokens=MAX_TOKENS,
-                  n=1)
+        completion = client.chat.completions.create(
+            model=model,
+            messages=answer_context,
+            temperature=TEMPERATURE,
+            max_tokens=MAX_TOKENS,
+            n=1
+        )
     except RateLimitError as e:
-        if "You exceeded your current quota, please check your plan and billing details" in e.user_message:
-            raise OutOfQuotaException(openai.api_key)
-        elif "Your access was terminated due to violation of our policies" in e.user_message:
-            raise AccessTerminatedException(openai.api_key)
+        error_message = str(e)
+        if "quota" in error_message.lower():
+            raise OutOfQuotaException(os.getenv("TOGETHER_API_KEY"))
+        elif "terminated" in error_message.lower() or "violation" in error_message.lower():
+            raise AccessTerminatedException(os.getenv("TOGETHER_API_KEY"))
         else:
             raise e
 
-    return completion["choices"][0]["message"]["content"], completion["usage"]["prompt_tokens"], completion["usage"]["completion_tokens"]
+    return completion.choices[0].message.content, completion.usage.prompt_tokens, completion.usage.completion_tokens
+
 
 def parse_single_choice(reply):
     pattern = r'\(([ABCDabcd])\)'
@@ -366,6 +398,7 @@ def parse_single_choice(reply):
 
     return solution
 
+
 def most_frequent(clist, cmp_func):
     counter = 0
     num = clist[0]
@@ -377,3 +410,95 @@ def most_frequent(clist, cmp_func):
             num = i
 
     return num, counter
+
+
+# ---- Soft tie-break judge helpers (k-way) ----
+import json, re, random
+
+
+def _extract_json_list(text):
+    """
+    Extract the first JSON-like list '[ ... ]' from text and parse it.
+    Returns a Python list or None on failure.
+    """
+    if not isinstance(text, str):
+        return None
+    # strip code fences if any
+    text = text.strip()
+    text = re.sub(r"^```(?:json)?\s*", "", text)
+    text = re.sub(r"\s*```$", "", text)
+
+    m = re.search(r"\[[\s\S]*\]", text)
+    if not m:
+        return None
+    frag = m.group(0)
+    try:
+        data = json.loads(frag)
+        if isinstance(data, list):
+            return data
+    except Exception:
+        return None
+    return None
+
+
+def _sanitize_and_normalize(weights, k):
+    """
+    Convert to floats, clamp negatives to zero, and renormalize to sum 1.
+    If anything goes wrong (size mismatch or all zeros), return uniform.
+    """
+    try:
+        vals = [float(x) for x in weights]
+    except Exception:
+        return [1.0 / k] * k
+
+    if len(vals) != k:
+        return [1.0 / k] * k
+
+    vals = [0.0 if (v is None or not (v == v)) else float(v) for v in vals]  # NaN->0
+    vals = [max(0.0, v) for v in vals]
+    s = sum(vals)
+    if s <= 0.0:
+        return [1.0 / k] * k
+    return [v / s for v in vals]
+
+
+def judge_importance_weights(responses, question, qtype, model):
+    """
+    Bias-reduced k-way judge:
+      * Shuffle candidate order before prompting.
+      * Ask LLM for a JSON weight vector [w1..wk] (sum to 1).
+      * Map weights back to the original order.
+    Returns (weights_in_original_order, prompt_tokens, completion_tokens).
+    """
+    assert isinstance(responses, list) and len(responses) >= 2
+    k = len(responses)
+
+    # 1) Shuffle to reduce position bias
+    perm = list(range(k))
+    random.shuffle(perm)
+    shuffled = [responses[i] for i in perm]
+
+    # 2) Build messages (JSON-only)
+    from prompt_lib import construct_weight_judge_message
+    messages = construct_weight_judge_message(shuffled, question, qtype)
+
+    # 3) Call the same LLM backend as other calls (temperature 0)
+    reply, ptok, ctok = generate_answer(messages, model)
+
+    # 4) Parse and sanitize
+    parsed = _extract_json_list(reply)
+    if parsed is None:
+        norm = [1.0 / k] * k
+    else:
+        norm = _sanitize_and_normalize(parsed, k)
+
+    # 5) Map weights back to original order
+    #    norm is aligned with 'shuffled' order; invert permutation
+    inv = [0] * k
+    for pos, orig in enumerate(perm):
+        inv[orig] = pos
+    restored = [0.0] * k
+    for orig_idx in range(k):
+        restored[orig_idx] = norm[inv[orig_idx]]
+
+    return restored, ptok, ctok

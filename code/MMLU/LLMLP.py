@@ -1,7 +1,9 @@
+import os
 import math
 import random
 from LLM_Neuron import LLMNeuron, LLMEdge, listwise_ranker_2
 from utils import parse_single_choice, most_frequent, is_equiv, extract_math_answer
+
 
 
 ACTIVATION_MAP = {'listwise': 0, 'trueskill': 1, 'window': 2, 'none': -1} # TODO: only 0 is implemented
@@ -25,6 +27,9 @@ class LLMLP:
         elif qtype == "math_exp":
             self.cmp_res = is_equiv
             self.ans_parser = extract_math_answer
+
+        # cache the last question so backward() can access it for the judge
+        self._last_question = None
 
         self.init_nn(self.activation, self.agent_roles)
 
@@ -80,7 +85,9 @@ class LLMLP:
         resp_cnt = 0
         total_prompt_tokens, total_completion_tokens = 0, 0
         self.set_allnodes_deactivated()
+        # Remember the raw question text for the backward (tie-break) step.
         assert self.rounds > 2
+        self._last_question = question
         # question = format_question(question, self.qtype)
 
         # shuffle the order of agents
@@ -138,7 +145,8 @@ class LLMLP:
             random.shuffle(loop_indices)
             idxs = []
             for idx, node_idx in enumerate(loop_indices):
-                if idx in idx_mask:
+                # TODO: report bug # if idx in idx_mask:
+                if node_idx % self.agents in idx_mask:
                     print(rid, idx)
                     self.nodes[node_idx].activate(question)
                     resp_cnt += 1
@@ -153,27 +161,72 @@ class LLMLP:
         completions = get_completions()
         return most_frequent([self.nodes[idx].get_answer() for idx in idxs], self.cmp_res)[0], resp_cnt, completions, total_prompt_tokens, total_completion_tokens
 
-
-    def backward(self, result):
+    def backward(self, result, question=None):
+        """
+        Compute Agent Importance via backward aggregation.
+        If AIP_JUDGE_WEIGHTS=1 and there are >=2 last-layer survivors that match `result`,
+        ask an LLM judge for a JSON weight vector instead of uniform splitting.
+        """
+        use_judge = os.getenv("AIP_JUDGE_WEIGHTS", "0") == "1"
         flag_last = False
-        for rid in range(self.rounds-1, -1, -1):
+
+        for rid in range(self.rounds - 1, -1, -1):
+            layer_indices = list(range(self.agents * rid, self.agents * (rid + 1)))
+            actives = [idx for idx in layer_indices if self.nodes[idx].active]
+
             if not flag_last:
-                if len([idx for idx in range(self.agents*rid, self.agents*(rid+1)) if self.nodes[idx].active]) > 0:
-                    flag_last = True
-                else:
+                # Find the last active layer
+                if len(actives) == 0:
+                    continue
+                flag_last = True
+
+                # Among actives, only agents whose answer equals final `result` receive positive credit
+                correct_idxs = [idx for idx in actives if self.cmp_res(self.nodes[idx].get_answer(), result)]
+
+                if len(correct_idxs) == 0:
+                    # No one matched the final result -> all zero (degenerate case)
+                    for idx in layer_indices:
+                        self.nodes[idx].importance = 0.0
                     continue
 
-                ave_w = 1 / len([idx for idx in range(self.agents*rid, self.agents*(rid+1)) if self.nodes[idx].active and self.cmp_res(self.nodes[idx].get_answer(), result)])
-                for idx in range(self.agents*rid, self.agents*(rid+1)):
-                    if self.nodes[idx].active and self.cmp_res(self.nodes[idx].get_answer(), result):
-                        self.nodes[idx].importance = ave_w
-                    else:
-                        self.nodes[idx].importance = 0
+                if use_judge and len(correct_idxs) >= 2:
+                    # Gather full replies for reasoning quality judging
+                    replies = [self.nodes[idx].get_reply() for idx in correct_idxs]
+                    try:
+                        from utils import judge_importance_weights
+                        weights, _, _ = judge_importance_weights(
+                            replies,
+                            question if question is not None else "",
+                            self.qtype,
+                            self.mtype
+                        )
+                    except Exception:
+                        # Robust fallback
+                        weights = [1.0 / len(correct_idxs)] * len(correct_idxs)
+
+                    # Assign judged weights to correct survivors; others get 0
+                    for idx in layer_indices:
+                        self.nodes[idx].importance = 0.0
+                    for w, idx in zip(weights, correct_idxs):
+                        self.nodes[idx].importance = float(w)
+                else:
+                    # Default: split equally among correct survivors
+                    ave_w = 1.0 / float(len(correct_idxs))
+                    for idx in layer_indices:
+                        if idx in correct_idxs:
+                            self.nodes[idx].importance = ave_w
+                        else:
+                            self.nodes[idx].importance = 0.0
+
             else:
-                for idx in range(self.agents*rid, self.agents*(rid+1)):
-                    self.nodes[idx].importance = 0
+                # Standard backward aggregation through peer rating edges
+                for idx in layer_indices:
+                    self.nodes[idx].importance = 0.0
                     if self.nodes[idx].active:
                         for edge in self.nodes[idx].to_edges:
+                            # edge.weight is peer rating (1-5); here we do a simple weighted sum
                             self.nodes[idx].importance += edge.weight * edge.a2.importance
 
         return [node.importance for node in self.nodes]
+
+

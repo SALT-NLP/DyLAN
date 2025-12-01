@@ -61,8 +61,8 @@ def construct_assistant_message(completion):
 def generate_answer(answer_context):
     try:
         completion = openai.ChatCompletion.create(
-                #   model=MODEL,
-                  engine=ENGINE,
+                  model=MODEL,
+                  # engine=ENGINE,
                   messages=answer_context,
                 #   temperature=0.2,
                   n=1)

@@ -1,23 +1,24 @@
 import ast
 import json
 import os
-import openai
 import random
 import sys
 from prettytable import PrettyTable
 from LLMLP import LLMLP
 from utils import *
 
-# openai.api_key =
-# openai.api_base =
-# openai.api_type =
-# openai.api_version =
+from dotenv import load_dotenv
+
+# Load environment variables from .env
+load_dotenv()
 
 # Put your query here
 QUERY = r"""What 8 letter word can have a letter taken away and it still makes a word. Take another letter away and it still makes a word. Keep on doing that until you have one letter left. What is the word?"""
 
 EXP_NAME = "trial_1"
-MODEL = "chatgpt0301"
+# MODEL = "chatgpt0301"
+# Use a cheaper Together model for debugging.
+MODEL = "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"
 
 ACTIVATION = "listwise"
 TYPE = "open-ended"

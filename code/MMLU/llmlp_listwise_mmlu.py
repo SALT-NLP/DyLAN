@@ -1,16 +1,14 @@
 import ast
 import json
 import os
-import openai
 import random
 import sys
 from LLMLP import LLMLP
 from utils import *
 
-# openai.api_key =
-# openai.api_base =
-# openai.api_type =
-# openai.api_version =
+from dotenv import load_dotenv
+
+load_dotenv()  # so .env is loaded when this script is run
 
 QUERY_CSV = sys.argv[1]
 EXP_NAME = sys.argv[2]
@@ -32,6 +30,12 @@ def main():
     assert len(ROLES) > 0
     os.makedirs(DIR_NAME, exist_ok=True)
 
+    #Print configuration status
+    if os.getenv("RATIONALE", "0") == "1":
+        print("=" * 10)
+        print("RATIONALE MODE ENABLED: Agents will provide rationales for their scores.")
+        print("=" * 10) 
+
     llmlp = LLMLP(MODEL, len(ROLES), ROLES, 3, ACTIVATION, TYPE, MODEL)
     qa_pairs = get_mmlu_qa_pairs(QUERY_CSV)
 
@@ -45,7 +49,7 @@ def main():
     for que, ans in qa_pairs:
         llmlp.zero_grad()
         res, resp_cnt, completions, prompt_tokens, completion_tokens = llmlp.forward(que)
-        imp_score = llmlp.backward(res)
+        imp_score = llmlp.backward(res, que)
 
         completion_list.append(completions)
         accs.append(ans == res)

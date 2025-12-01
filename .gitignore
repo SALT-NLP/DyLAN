@@ -94,6 +94,10 @@ ipython_config.py
 #   install all needed dependencies.
 #Pipfile.lock
 
+.DS_Store
+code/.DS_Store
+code/MMLU/runs/
+code/MMLU/evaluation_results/
 # poetry
 #   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
 #   This is especially recommended for binary packages to ensure reproducibility, and is more
@@ -160,3 +164,16 @@ cython_debug/
 #.idea/
 
 rebuttal/
+.idea
+data
+/code/MMLU/mmlu_downsampled_*/
+code/MMLU/importance_*.csv
+code/MMLU/*_Economist_Doctor_Lawyer_Mathematician_Psychologist_Programmer_Historian/
+code/MMLU/eval_*/
+code/MMLU/evaluation_results_*/
+.DS_Store
+code/MMLU/single_llm_results/
+code/MMLU/standard_dylan/
+code/MMLU/two_agent_debate_results/
+code/MMLU/baseline*/
+.claude/

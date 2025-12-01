@@ -1,7 +1,8 @@
 #!/bin/bash
 
-MODEL=gpt-3.5-turbo
+#MODEL=gpt-3.5-turbo
 # MODEL=gpt-4
+MODEL="meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"
 
 # original ROLES array
 # ROLES=("Assistant" "Mathematician" "Mathematician" "Assistant")
@@ -9,8 +10,10 @@ MODEL=gpt-3.5-turbo
 # ROLES=("Programmer" "Doctor" "Historian")
 ROLES=("Economist" "Doctor" "Lawyer")
 
-# specify your directory
-dir="<path-to-your-directory>"
+# Resolve paths relative to this script so you can run from anywhere (incl. repo root)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Your mini slice of MMLU:
+dir="$SCRIPT_DIR/../../data/MMLU/val"
 exp_name=mmlu_downsampled
 
 # TODO: mkdir -p "$exp_name"
