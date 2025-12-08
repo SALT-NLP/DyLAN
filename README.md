@@ -75,7 +75,7 @@ pip install -r requirements.txt
 2. Run the command and get the result in `code/demo/ans.txt`:
 
     ```bash
-    cd trial
+    cd `demo`
     python run_DyLAN.py > ans.txt
     ```
 

@@ -3,14 +3,28 @@ import random
 import astunparse
 import re
 import time
+import os
 import pandas as pd
 from prompt_lib import MMLU_QUESTION, TEMPERATURE, MAX_TOKENS, construct_ranking_message
-import openai
+from together import Together
+from together.error import RateLimitError, APIError
 from human_eval.data import read_problems, write_jsonl
 from human_eval.execution import TimeoutException, create_tempdir, reliability_guard, swallow_io, time_limit
 import multiprocessing
 from threading import Thread
 from typing import Dict, List
+
+# Initialize Together client
+_together_client = None
+
+def get_together_client():
+    global _together_client
+    if _together_client is None:
+        api_key = os.getenv("TOGETHER_API_KEY")
+        if not api_key:
+            raise ValueError("TOGETHER_API_KEY environment variable not set")
+        _together_client = Together(api_key=api_key)
+    return _together_client
 
 
 def parse_ranks(completion, max_num=4):
@@ -134,21 +148,22 @@ def check_function_result(python_code: str, timeout: float = 5.0) -> Dict:
 def generate_answer(answer_context, model):
     print("question context: ")
     print(answer_context)
+    client = get_together_client()
     try:
-        completion = openai.ChatCompletion.create(
-                #   model=model,
-                  engine=model,
-                  temperature=TEMPERATURE,
-                  messages=answer_context,
-                  max_tokens=MAX_TOKENS,
-                  n=1)
+        completion = client.chat.completions.create(
+            model=model,
+            temperature=TEMPERATURE,
+            messages=answer_context,
+            max_tokens=MAX_TOKENS,
+            n=1
+        )
     except Exception as e:
         print(e)
         print("retrying due to an error......")
         time.sleep(10)
         return generate_answer(answer_context, model)
 
-    return completion["choices"][0]["message"]["content"], completion["usage"]["prompt_tokens"], completion["usage"]["completion_tokens"]
+    return completion.choices[0].message.content, completion.usage.prompt_tokens, completion.usage.completion_tokens
 
 def parse_single_choice(reply):
     pattern = r'\(([ABCDabcd])\)'

@@ -1,16 +1,14 @@
 import ast
 import json
 import os
-import openai
 import random
 import sys
 from CoLLMLP import CoLLMLP
 from utils import *
 
-# openai.api_key =
-# openai.api_base =
-# openai.api_type =
-# openai.api_version =
+from dotenv import load_dotenv
+
+load_dotenv()
 
 PART = int(sys.argv[1])
 EXP_NAME = sys.argv[2]

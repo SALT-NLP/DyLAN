@@ -4,9 +4,9 @@ import re
 import time
 import pandas as pd
 from prompt_lib import MMLU_QUESTION, COMPLEX_COT_EXAMPLES, TEMPERATURE, MAX_TOKENS
-import openai
+from together import Together
 import backoff
-from openai.error import RateLimitError, APIError, ServiceUnavailableError, APIConnectionError, Timeout
+from together.error import RateLimitError, APIError
 
 
 class OutOfQuotaException(Exception):
@@ -34,6 +34,18 @@ class AccessTerminatedException(Exception):
             return f"{super().__str__()}. Caused by {self.cause}"
         else:
             return super().__str__()
+
+# Initialize Together client
+_together_client = None
+
+def get_together_client():
+    global _together_client
+    if _together_client is None:
+        api_key = os.getenv("TOGETHER_API_KEY")
+        if not api_key:
+            raise ValueError("TOGETHER_API_KEY environment variable not set")
+        _together_client = Together(api_key=api_key)
+    return _together_client
 
 def _fix_a_slash_b(string):
     if len(string.split("/")) != 2:
@@ -324,25 +336,27 @@ def extract_math_answer(pred_str):
         pred=a
     return pred
 
-@backoff.on_exception(backoff.expo, (RateLimitError, APIError, ServiceUnavailableError, APIConnectionError, Timeout), max_tries=20)
+@backoff.on_exception(backoff.expo, (RateLimitError, APIError), max_tries=5)
 def generate_answer(answer_context, model):
+    client = get_together_client()
     try:
-        completion = openai.ChatCompletion.create(
-                #   model=model,
-                  engine=model,
-                  messages=answer_context,
-                  temperature=TEMPERATURE,
-                  max_tokens=MAX_TOKENS,
-                  n=1)
+        completion = client.chat.completions.create(
+            model=model,
+            messages=answer_context,
+            temperature=TEMPERATURE,
+            max_tokens=MAX_TOKENS,
+            n=1
+        )
     except RateLimitError as e:
-        if "You exceeded your current quota, please check your plan and billing details" in e.user_message:
-            raise OutOfQuotaException(openai.api_key)
-        elif "Your access was terminated due to violation of our policies" in e.user_message:
-            raise AccessTerminatedException(openai.api_key)
+        error_message = str(e)
+        if "quota" in error_message.lower():
+            raise OutOfQuotaException(os.getenv("TOGETHER_API_KEY"))
+        elif "terminated" in error_message.lower() or "violation" in error_message.lower():
+            raise AccessTerminatedException(os.getenv("TOGETHER_API_KEY"))
         else:
             raise e
 
-    return completion["choices"][0]["message"]["content"], completion["usage"]["prompt_tokens"], completion["usage"]["completion_tokens"]
+    return completion.choices[0].message.content, completion.usage.prompt_tokens, completion.usage.completion_tokens
 
 def parse_single_choice(reply):
     pattern = r'\(([ABCDabcd])\)'

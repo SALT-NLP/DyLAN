@@ -19,10 +19,11 @@ class LLMNeuron:
         self.from_edges = []
         self.question = None
 
-        if mtype == "gpt-3.5-turbo":
-            self.model = "chatgpt0301"
-        else:
-            raise NotImplementedError("Error init model type")
+        # if mtype == "gpt-3.5-turbo":
+        #     self.model = "chatgpt0301"
+        # else:
+        #     raise NotImplementedError("Error init model type")
+        self.model = mtype
 
         def find_array(text):
             # Find all matches of array pattern
@@ -64,11 +65,25 @@ class LLMNeuron:
         self.prompt_tokens = 0
         self.completion_tokens = 0
 
-    def activate(self, question):
+    def activate(self, question, memory_bank=None):
         self.question = question
         self.active = True
         # get context and genrate reply
         contexts, formers = self.get_context()
+        
+        if memory_bank is not None:
+            try:
+                memories = memory_bank.search(
+                    question,
+                    top_k=5,
+                    owner=self.role 
+                )
+                if memories:
+                    memory_text = "\n".join([f"- {m.text}" for m in memories])
+                    contexts[0]["content"] += f"\n\nRelevant memories from past {self.role} experiences:\n{memory_text}"
+            except Exception as e:
+                print(f"Warning: Memory bank search failed: {e}")
+        
         # print("formers: ", formers)
         # shuffle
         original_idxs = [mess[1] for mess in formers]
@@ -164,12 +179,12 @@ def parse_ranks(completion, max_num=4):
     return tops
 
 def listwise_ranker_2(responses, question, qtype, model="chatgpt0301"):
-    if model == "gpt-3.5-turbo":
-        model = "chatgpt0301"
-    elif model == "gpt-4":
-        model = "gpt4"
-    else:
-        raise NotImplementedError("Error init model type")
+    # if model == "gpt-3.5-turbo":
+    #     model = "chatgpt0301"
+    # elif model == "gpt-4":
+    #     model = "gpt4"
+    # else:
+    #     raise NotImplementedError("Error init model type")
     assert 2 < len(responses)# <= 4
     message = construct_ranking_message(responses, question, qtype)
     completion, prompt_tokens, completion_tokens = generate_answer([message], model)
